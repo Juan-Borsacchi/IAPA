@@ -660,9 +660,12 @@
             .catch(() => showFeedback(feedId, 'Erro ao enviar dados.', true));
         }
 
+        // CORRIGIDO: Removido o caractere especial inválido da declaração da constante
         function recarregarDadosSilenciosamente() {
-            const延 = sessionStorage.getItem('senhaMestre');
-            fetch(`${API_URL}?op=obterDadosAdmin&senha=${encodeURIComponent(延)}`)
+            const senha = sessionStorage.getItem('senhaMestre');
+            if(!senha) return;
+            
+            fetch(`${API_URL}?op=obterDadosAdmin&senha=${encodeURIComponent(senha)}`)
             .then(res => res.json())
             .then(dados => {
                 if(!dados.erro) {
