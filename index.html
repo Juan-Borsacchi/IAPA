@@ -431,19 +431,19 @@
 
         function showSection(sectionId) {
             document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
-            document.querySelectorAll('.tab-trigger').forEach(t => t.classList.remove('active'));
-            
-            if (sectionId === 'admin-auth-view' || sectionId === 'admin-panel-view') {
-                document.getElementById('btn-tab-admin').classList.add('active');
-                if (sessionStorage.getItem('adminLogado') === 'true') {
-                    document.getElementById('admin-panel-view').classList.add('active');
-                } else {
-                    document.getElementById('admin-auth-view').classList.add('active');
-                }
-            } else {
-                document.getElementById('btn-tab-cliente').classList.add('active');
-                document.getElementById(sectionId).classList.add('active');
-            }
+    document.querySelectorAll('.tab-trigger').forEach(t => t.classList.remove('active'));
+    
+    if (sectionId === 'admin-auth-view' || sectionId === 'admin-panel-view') {
+        document.getElementById('btn-tab-admin').classList.add('active');
+        if (sessionStorage.getItem('adminLogado') === 'true') {
+            document.getElementById('admin-panel-view').classList.add('active');
+        } else {
+            document.getElementById('admin-auth-view').classList.add('active');
+        }
+    } else {
+        document.getElementById('btn-tab-cliente').classList.add('active');
+        document.getElementById(sectionId).classList.add('active');
+    }
         }
 
         function toggleAccordion(button) {
@@ -660,7 +660,6 @@
             .catch(() => showFeedback(feedId, 'Erro ao enviar dados.', true));
         }
 
-        // CORRIGIDO: Removido o caractere especial inválido da declaração da constante
         function recarregarDadosSilenciosamente() {
             const senha = sessionStorage.getItem('senhaMestre');
             if(!senha) return;
@@ -704,6 +703,37 @@
                 inputPreco.value = opt.getAttribute('data-preco');
             }
         }
+
+        // Executa automaticamente toda vez que a página é carregada ou recarregada (F5)
+window.addEventListener('DOMContentLoaded', () => {
+    const adminLogado = sessionStorage.getItem('adminLogado');
+    const nome = sessionStorage.getItem('adminNome');
+    const senha = sessionStorage.getItem('senhaMestre');
+
+    // Se existirem dados salvos da sessão anterior, restaura o login
+    if (adminLogado === 'true' && nome && senha) {
+        document.getElementById('label-operador').innerText = `${nome} (Sessão Restaurada)`;
+        
+        // Busca os dados da planilha novamente de forma automática
+        fetch(`${API_URL}?op=obterDadosAdmin&senha=${encodeURIComponent(senha)}`)
+        .then(res => res.json())
+        .then(dados => {
+            if(!dados.erro) {
+                CATALOGO_LOCAL = dados.catalogo;
+                CLIENTES_LOCAL = dados.clientes;
+                
+                document.getElementById('senhaGeladeira').value = dados.senhaGeladeira;
+                document.getElementById('senhaGeladeiraTexto').innerText = dados.senhaGeladeira;
+                
+                renderizarSeletores();
+                // Mantém o usuário na tela do painel se ele tentar ir para a aba admin
+                if (document.getElementById('btn-tab-admin').classList.contains('active')) {
+                    showSection('admin-panel-view');
+                }
+            }
+        });
+    }
+});
     </script>
 </body>
 
