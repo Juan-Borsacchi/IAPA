@@ -333,8 +333,7 @@
                         <strong>Condimentos</strong>(Ketchup, Mostarda, etc).</li>
                     <li>Observar a organização e validade dos produtos dentro da <strong>Geladeira</strong> e
                         <strong>Armário</strong>.</li>
-                    <li>🔑 Senha da Geladeira Atual:<p><span id="senhaGeladeira"></span></p>
-                    </li>
+                    <li>🔑 Senha da Geladeira Atual: <strong id="senhaGeladeiraTexto">-</strong></li>
                 </ul>
             </div>
 
@@ -358,8 +357,6 @@
                         <label>Selecione a Ação:</label>
                         <select id="selectProdutoPreco" onchange="carregarPrecoProdutoEdicao()">
                             <option value="novo">-- Cadastrar Novo Produto --</option>
-                            <option value="prod_1" data-preco="25.00">Arroz 5kg</option>
-                            <option value="prod_2" data-preco="8.50">Feijão Carioca</option>
                         </select>
                     </div>
                     <div class="form-group" id="container-nome-produto">
@@ -382,15 +379,12 @@
                         <label>Selecione o Cliente:</label>
                         <select id="selectClienteAdmin">
                             <option value="">-- Escolha --</option>
-                            <option value="101">Família Silva (101)</option>
                         </select>
                     </div>
                     <div class="form-group">
                         <label>Selecione o Produto:</label>
                         <select id="selectProdutoCompra" onchange="atualizarPrecoPreVisualizacao()">
                             <option value="">-- Escolha --</option>
-                            <option value="Arroz 5kg" data-preco="25.00">Arroz 5kg (R$ 25,00)</option>
-                            <option value="Feijão Carioca" data-preco="8.50">Feijão Carioca (R$ 8,50)</option>
                         </select>
                     </div>
                     <div style="display: flex; gap: 10px;">
@@ -411,317 +405,302 @@
             </div>
 
             <div class="accordion-item">
-                <button class="accordion-header" onclick="toggleAccordion(this)">⚙️ Configurações & Quadro de
-                    Avisos</button>
+                <button class="accordion-header" onclick="toggleAccordion(this)">⚙️ Configurações & Quadro de Avisos</button>
                 <div class="accordion-content">
-
                     <div style="background: #f8fafc; border:1px solid var(--border); padding:15px; border-radius:8px;">
-                        <label style="color:var(--dark); margin-bottom:10px;">🔑 Senha da Geladeira Atual:<span
-                                id="senhaGeladeira"></span></label>
+                        <label style="color:var(--dark); margin-bottom:10px;">🔑 Configurar Senha da Geladeira:</label>
                         <div style="display:flex; gap:10px;">
-                            <input type="text" id="senhaGeladeira" value="356" disabled
+                            <input type="text" id="senhaGeladeira" value="" disabled
                                 style="font-family:monospace; font-size:16px;">
                             <button class="btn btn-warning" id="btnEditarGeladeira" onclick="toggleEditarGeladeira()"
                                 style="width:auto; padding:0 15px;">Editar</button>
                         </div>
                         <div id="feed-geladeira" class="feedback-msg"></div>
                     </div>
-
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // INSIRA AQUI A URL QUE VOCÊ COPIOU NO PASSO 3
-const API_URL = "SUA_URL_DO_APPS_SCRIPT_AQUI/exec"; 
+        // Lembre-se de substituir pela sua URL de implantação do Google Apps Script
+        const API_URL = "https://script.google.com/macros/s/AKfycbxlaxoe5G9Z6TQC3VxjiCXenRW_JdzoH8QLNUxR9RDwwXhAJ5fJ9WOZm4gfaZjLd4-cAQ/exec"; 
 
-// Variáveis globais de controle do sistema
-let CATALOGO_LOCAL = [];
-let CLIENTES_LOCAL = [];
+        let CATALOGO_LOCAL = [];
+        let CLIENTES_LOCAL = [];
 
-function showSection(sectionId) {
-    document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
-    document.querySelectorAll('.tab-trigger').forEach(t => t.classList.remove('active'));
-    
-    if (sectionId === 'admin-auth-view' || sectionId === 'admin-panel-view') {
-        document.getElementById('btn-tab-admin').classList.add('active');
-        if (sessionStorage.getItem('adminLogado') === 'true') {
-            document.getElementById('admin-panel-view').classList.add('active');
-        } else {
-            document.getElementById('admin-auth-view').classList.add('active');
+        function showSection(sectionId) {
+            document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.tab-trigger').forEach(t => t.classList.remove('active'));
+            
+            if (sectionId === 'admin-auth-view' || sectionId === 'admin-panel-view') {
+                document.getElementById('btn-tab-admin').classList.add('active');
+                if (sessionStorage.getItem('adminLogado') === 'true') {
+                    document.getElementById('admin-panel-view').classList.add('active');
+                } else {
+                    document.getElementById('admin-auth-view').classList.add('active');
+                }
+            } else {
+                document.getElementById('btn-tab-cliente').classList.add('active');
+                document.getElementById(sectionId).classList.add('active');
+            }
         }
-    } else {
-        document.getElementById('btn-tab-cliente').classList.add('active');
-        document.getElementById(sectionId).classList.add('active');
-    }
-}
 
-function toggleAccordion(button) {
-    const item = button.parentElement;
-    const isOpen = item.classList.contains('open');
-    document.querySelectorAll('.accordion-item').forEach(i => i.classList.remove('open'));
-    if (!isOpen) item.classList.add('open');
-}
-
-function showFeedback(elementId, message, isError = false) {
-    const element = document.getElementById(elementId);
-    element.innerText = message;
-    element.className = `feedback-msg ${isError ? 'feedback-error' : 'feedback-success'}`;
-    element.style.display = 'block';
-    setTimeout(() => { element.style.display = 'none'; }, 4000);
-}
-
-// ================= CONEXÕES COM O BANCO DE DADOS (API) =================
-
-// 1. AUTENTICAÇÃO E CARREGAMENTO DE DADOS DO ADMIN
-function autenticarAdmin() {
-    const nome = document.getElementById('responsavelNome').value.trim();
-    const senha = document.getElementById('adminSenha').value;
-
-    if(!nome || !senha) {
-        showFeedback('err-auth', 'Preencha o seu nome e a senha.', true);
-        return;
-    }
-
-    // Busca dados no Sheets validando a senha
-    fetch(`${API_URL}?op=obterDadosAdmin&senha=${encodeURIComponent(senha)}`)
-    .then(res => res.json())
-    .then(dados => {
-        if(dados.erro) {
-            showFeedback('err-auth', dados.mensagem, true);
-        } else {
-            sessionStorage.setItem('adminLogado', 'true');
-            sessionStorage.setItem('adminNome', nome);
-            sessionStorage.setItem('senhaMestre', senha);
-            document.getElementById('label-operador').innerText = `${nome} (Conectado à Planilha)`;
-            
-            // Atualiza tabelas internas na página
-            CATALOGO_LOCAL = dados.catalogo;
-            CLIENTES_LOCAL = dados.clientes;
-            document.getElementById('senhaGeladeira').value = dados.senhaGeladeira;
-            
-            renderizarSeletores();
-            showSection('admin-panel-view');
+        function toggleAccordion(button) {
+            const item = button.parentElement;
+            const isOpen = item.classList.contains('open');
+            document.querySelectorAll('.accordion-item').forEach(i => i.classList.remove('open'));
+            if (!isOpen) item.classList.add('open');
         }
-    })
-    .catch(() => showFeedback('err-auth', 'Erro de comunicação com o servidor.', true));
-}
 
-// Atualiza as opções dos menus do administrador com dados reais da planilha
-function renderizarSeletores() {
-    const selectCat = document.getElementById('selectProdutoPreco');
-    const selectCompra = document.getElementById('selectProdutoCompra');
-    const selectCli = document.getElementById('selectClienteAdmin');
-    
-    // Reseta e renderiza catálogo
-    selectCat.innerHTML = '<option value="novo">-- Cadastrar Novo Produto --</option>';
-    selectCompra.innerHTML = '<option value="">-- Escolha --</option>';
-    CATALOGO_LOCAL.forEach(p => {
-        selectCat.innerHTML += `<option value="${p.id}" data-preco="${p.preco}">${p.produto} (R$ ${parseFloat(p.preco).toFixed(2)})</option>`;
-        selectCompra.innerHTML += `<option value="${p.produto}" data-preco="${p.preco}">${p.produto} (R$ ${parseFloat(p.preco).toFixed(2)})</option>`;
-    });
+        function showFeedback(elementId, message, isError = false) {
+            const element = document.getElementById(elementId);
+            element.innerText = message;
+            element.className = `feedback-msg ${isError ? 'feedback-error' : 'feedback-success'}`;
+            element.style.display = 'block';
+            setTimeout(() => { element.style.display = 'none'; }, 4000);
+        }
 
-    // Renderiza clientes
-    selectCli.innerHTML = '<option value="">-- Escolha --</option>';
-    CLIENTES_LOCAL.forEach(c => {
-        selectCli.innerHTML += `<option value="${c.codigo}">${c.nome} (${c.codigo})</option>`;
-    });
-}
+        function autenticarAdmin() {
+            const nome = document.getElementById('responsavelNome').value.trim();
+            const senha = document.getElementById('adminSenha').value;
 
-// 2. BUSCA DO CLIENTE (PÚBLICO)
-function buscarContaCliente() {
-    const cod = document.getElementById('codigoCliente').value.trim();
-    if(!cod) { showFeedback('err-cliente', 'Por favor, informe seu código.', true); return; }
-    
-    fetch(`${API_URL}?op=buscarExtratoCliente&codigo=${cod}`)
-    .then(res => res.json())
-    .then(dados => {
-        if(dados.erro) {
-            showFeedback('err-cliente', dados.mensagem, true);
-            document.getElementById('resultado-cliente').style.display = 'none';
-        } else {
-            document.getElementById('nome-cliente-extrato').innerText = dados.nome;
-            const corpo = document.getElementById('tabela-cliente-corpo');
-            corpo.innerHTML = "";
-            let totalDevido = 0;
-            
-            dados.extrato.forEach(item => {
-                totalDevido += parseFloat(item.total);
-                corpo.innerHTML += `<tr>
-                    <td>${item.produto}</td>
-                    <td>${item.qtd}</td>
-                    <td>R$ ${parseFloat(item.unit).toFixed(2).replace('.',',')}</td>
-                    <td>R$ ${parseFloat(item.total).toFixed(2).replace('.',',')}</td>
-                </tr>`;
-            });
-            
-            if(dados.extrato.length === 0) {
-                corpo.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#94a3b8;">Nenhum débito registrado! 🎉</td></tr>`;
+            if(!nome || !senha) {
+                showFeedback('err-auth', 'Preencha o seu nome e a senha.', true);
+                return;
             }
 
-            document.getElementById('total-cliente').innerText = totalDevido.toFixed(2).replace('.',',');
-            document.getElementById('resultado-cliente').style.display = 'block';
+            fetch(`${API_URL}?op=obterDadosAdmin&senha=${encodeURIComponent(senha)}`)
+            .then(res => res.json())
+            .then(dados => {
+                if(dados.erro) {
+                    showFeedback('err-auth', dados.mensagem, true);
+                } else {
+                    sessionStorage.setItem('adminLogado', 'true');
+                    sessionStorage.setItem('adminNome', nome);
+                    sessionStorage.setItem('senhaMestre', senha);
+                    document.getElementById('label-operador').innerText = `${nome} (Conectado à Planilha)`;
+                    
+                    CATALOGO_LOCAL = dados.catalogo;
+                    CLIENTES_LOCAL = dados.clientes;
+                    
+                    // CORRIGIDO: Alimenta tanto o input de edição quanto o texto do quadro de avisos superior
+                    document.getElementById('senhaGeladeira').value = dados.senhaGeladeira;
+                    document.getElementById('senhaGeladeiraTexto').innerText = dados.senhaGeladeira;
+                    
+                    renderizarSeletores();
+                    showSection('admin-panel-view');
+                }
+            })
+            .catch(() => showFeedback('err-auth', 'Erro de comunicação com o servidor.', true));
         }
-    });
-}
 
-// 3. CADASTRAR NOVO CLIENTE NO SHEETS
-function cadastrarCliente() {
-    const nome = document.getElementById('novoClienteNome').value.trim();
-    if(!nome) { showFeedback('feed-cliente', 'Nome do cliente é obrigatório.', true); return; }
-    
-    const payload = {
-        op: "cadastrarCliente",
-        senhaCaderno: sessionStorage.getItem('senhaMestre'),
-        nome: nome
-    };
+        function renderizarSeletores() {
+            const selectCat = document.getElementById('selectProdutoPreco');
+            const selectCompra = document.getElementById('selectProdutoCompra');
+            const selectCli = document.getElementById('selectClienteAdmin');
+            
+            selectCat.innerHTML = '<option value="novo">-- Cadastrar Novo Produto --</option>';
+            selectCompra.innerHTML = '<option value="">-- Escolha --</option>';
+            CATALOGO_LOCAL.forEach(p => {
+                selectCat.innerHTML += `<option value="${p.id}" data-preco="${p.preco}">${p.produto} (R$ ${parseFloat(p.preco).toFixed(2)})</option>`;
+                selectCompra.innerHTML += `<option value="${p.produto}" data-preco="${p.preco}">${p.produto} (R$ ${parseFloat(p.preco).toFixed(2)})</option>`;
+            });
 
-    enviarPost(payload, (dados) => {
-        showFeedback('feed-cliente', `Cliente adicionado! CÓDIGO DE ACESSO: ${dados.codigo}`);
-        document.getElementById('novoClienteNome').value = '';
-        recarregarDadosSilenciosamente();
-    }, 'feed-cliente');
-}
-
-// 4. SALVAR OU ATUALIZAR PRODUTO NO CATÁLOGO
-function salvarProdutoCatalogo() {
-    const select = document.getElementById('selectProdutoPreco').value;
-    const preco = parseFloat(document.getElementById('inputPrecoProduto').value);
-    
-    if(isNaN(preco) || preco <= 0) { showFeedback('feed-catalogo', 'Informe um preço válido.', true); return; }
-
-    const payload = {
-        op: "salvarCatalogo",
-        senhaCaderno: sessionStorage.getItem('senhaMestre'),
-        id: select,
-        preco: preco
-    };
-
-    if(select === 'novo') {
-        const nome = document.getElementById('inputNomeProduto').value.trim();
-        if(!nome) { showFeedback('feed-catalogo', 'Nome do produto é obrigatório.', true); return; }
-        payload.produto = nome;
-    }
-
-    enviarPost(payload, () => {
-        showFeedback('feed-catalogo', 'Catálogo atualizado com sucesso!');
-        document.getElementById('inputNomeProduto').value = '';
-        document.getElementById('inputPrecoProduto').value = '';
-        recarregarDadosSilenciosamente();
-    }, 'feed-catalogo');
-}
-
-// 5. REGISTRAR COMPRA NO CADERNO DE DEVEDORES
-function lancarCompra() {
-    const cliente = document.getElementById('selectClienteAdmin').value;
-    const produto = document.getElementById('selectProdutoCompra').value;
-    const qtd = parseInt(document.getElementById('prodQtd').value);
-
-    if(!cliente || !produto) { showFeedback('feed-compra', 'Selecione o cliente e o produto.', true); return; }
-    
-    const pSelecionado = CATALOGO_LOCAL.find(p => p.produto === produto);
-
-    const payload = {
-        op: "lancarCompra",
-        senhaCaderno: sessionStorage.getItem('senhaMestre'),
-        responsavel: sessionStorage.getItem('adminNome'),
-        codigoCliente: cliente,
-        produto: produto,
-        quantidade: qtd,
-        precoUnitario: pSelecionado.preco
-    };
-
-    enviarPost(payload, () => {
-        showFeedback('feed-compra', 'Compra lançada com sucesso no Caderno!');
-        document.getElementById('prodQtd').value = 1;
-        document.getElementById('previewPreco').value = "R$ 0,00";
-    }, 'feed-compra');
-}
-
-// 6. EDITAR E SALVAR SENHA DA GELADEIRA
-function toggleEditarGeladeira() {
-    const input = document.getElementById('senhaGeladeira');
-    const btn = document.getElementById('btnEditarGeladeira');
-
-    if(input.disabled) {
-        input.disabled = false;
-        input.focus();
-        btn.innerText = "Salvar";
-        btn.style.background = "var(--success)";
-    } else {
-        input.disabled = true;
-        btn.innerText = "Editar";
-        btn.style.background = "var(--warning)";
-        
-        const payload = {
-            op: "atualizarGeladeira",
-            senhaCaderno: sessionStorage.getItem('senhaMestre'),
-            novaSenha: input.value
-        };
-        
-        enviarPost(payload, () => {
-            showFeedback('feed-geladeira', 'Nova senha da geladeira salva na planilha!');
-        }, 'feed-geladeira');
-    }
-}
-
-// Funções Auxiliares de Envio Remoto
-function enviarPost(payload, callbackSucesso, feedId) {
-    fetch(API_URL, {
-        method: "POST",
-        mode: "no-cors", // Evita problemas de CORS com o Google Apps Script
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-    })
-    .then(() => {
-        // Como o modo 'no-cors' não traz resposta tratável, assumimos sucesso se a requisição foi completada
-        callbackSucesso({ codigo: "Atualizado (Recarregue para ver)" });
-    })
-    .catch(() => showFeedback(feedId, 'Erro ao salvar dados.', true));
-}
-
-function recarregarDadosSilenciosamente() {
-    const senha = sessionStorage.getItem('senhaMestre');
-    fetch(`${API_URL}?op=obterDadosAdmin&senha=${encodeURIComponent(senha)}`)
-    .then(res => res.json())
-    .then(dados => {
-        if(!dados.erro) {
-            CATALOGO_LOCAL = dados.catalogo;
-            CLIENTES_LOCAL = dados.clientes;
-            renderizarSeletores();
+            selectCli.innerHTML = '<option value="">-- Escolha --</option>';
+            CLIENTES_LOCAL.forEach(c => {
+                selectCli.innerHTML += `<option value="${c.codigo}">${c.nome} (${c.codigo})</option>`;
+            });
         }
-    });
-}
 
-function atualizarPrecoPreVisualizacao() {
-    const selectProd = document.getElementById('selectProdutoCompra');
-    const qtdInput = document.getElementById('prodQtd');
-    let qtd = parseInt(qtdInput.value);
-    const preview = document.getElementById('previewPreco');
+        function buscarContaCliente() {
+            const cod = document.getElementById('codigoCliente').value.trim();
+            if(!cod) { showFeedback('err-cliente', 'Por favor, informe seu código.', true); return; }
+            
+            fetch(`${API_URL}?op=buscarExtratoCliente&codigo=${cod}`)
+            .then(res => res.json())
+            .then(dados => {
+                if(dados.erro) {
+                    showFeedback('err-cliente', dados.mensagem, true);
+                    document.getElementById('resultado-cliente').style.display = 'none';
+                } else {
+                    document.getElementById('nome-cliente-extrato').innerText = dados.nome;
+                    const corpo = document.getElementById('tabela-cliente-corpo');
+                    corpo.innerHTML = "";
+                    let totalDevido = 0;
+                    
+                    dados.extrato.forEach(item => {
+                        totalDevido += parseFloat(item.total);
+                        corpo.innerHTML += `<tr>
+                            <td>${item.produto}</td>
+                            <td>${item.qtd}</td>
+                            <td>R$ ${parseFloat(item.unit).toFixed(2).replace('.',',')}</td>
+                            <td>R$ ${parseFloat(item.total).toFixed(2).replace('.',',')}</td>
+                        </tr>`;
+                    });
+                    
+                    if(dados.extrato.length === 0) {
+                        corpo.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#94a3b8;">Nenhum débito registrado! 🎉</td></tr>`;
+                    }
 
-    if (isNaN(qtd) || qtd < 1) { qtdInput.value = 1; qtd = 1; }
-    if(!selectProd.value) { preview.value = "R$ 0,00"; return; }
+                    document.getElementById('total-cliente').innerText = totalDevido.toFixed(2).replace('.',',');
+                    document.getElementById('resultado-cliente').style.display = 'block';
+                }
+            });
+        }
 
-    const precoUnitario = parseFloat(selectProd.options[selectProd.selectedIndex].getAttribute('data-preco'));
-    const total = precoUnitario * qtd;
-    preview.value = `R$ ${total.toFixed(2).replace('.', ',')}`;
-}
+        function cadastrarCliente() {
+            const nome = document.getElementById('novoClienteNome').value.trim();
+            if(!nome) { showFeedback('feed-cliente', 'Nome do cliente é obrigatório.', true); return; }
+            
+            const payload = {
+                op: "cadastrarCliente",
+                senhaCaderno: sessionStorage.getItem('senhaMestre'),
+                nome: nome
+            };
 
-function carregarPrecoProdutoEdicao() {
-    const select = document.getElementById('selectProdutoPreco');
-    const container = document.getElementById('container-nome-produto');
-    const inputPreco = document.getElementById('inputPrecoProduto');
-    
-    if (select.value === 'novo') {
-        container.style.display = 'block';
-        inputPreco.value = '';
-    } else {
-        container.style.display = 'none';
-        const opt = select.options[select.selectedIndex];
-        inputPreco.value = opt.getAttribute('data-preco');
-    }
-}
+            enviarPost(payload, (dados) => {
+                showFeedback('feed-cliente', `Cliente enviado com sucesso! Recarregue a página caso queira utilizá-lo imediatamente.`);
+                document.getElementById('novoClienteNome').value = '';
+                recarregarDadosSilenciosamente();
+            }, 'feed-cliente');
+        }
+
+        function salvarProdutoCatalogo() {
+            const select = document.getElementById('selectProdutoPreco').value;
+            const preco = parseFloat(document.getElementById('inputPrecoProduto').value);
+            
+            if(isNaN(preco) || preco <= 0) { showFeedback('feed-catalogo', 'Informe um preço válido.', true); return; }
+
+            const payload = {
+                op: "salvarCatalogo",
+                senhaCaderno: sessionStorage.getItem('senhaMestre'),
+                id: select,
+                preco: preco
+            };
+
+            if(select === 'novo') {
+                const nome = document.getElementById('inputNomeProduto').value.trim();
+                if(!nome) { showFeedback('feed-catalogo', 'Nome do produto é obrigatório.', true); return; }
+                payload.produto = nome;
+            }
+
+            enviarPost(payload, () => {
+                showFeedback('feed-catalogo', 'Atualização enviada à planilha com sucesso!');
+                document.getElementById('inputNomeProduto').value = '';
+                document.getElementById('inputPrecoProduto').value = '';
+                recarregarDadosSilenciosamente();
+            }, 'feed-catalogo');
+        }
+
+        function lancarCompra() {
+            const cliente = document.getElementById('selectClienteAdmin').value;
+            const produto = document.getElementById('selectProdutoCompra').value;
+            const qtd = parseInt(document.getElementById('prodQtd').value);
+
+            if(!cliente || !produto) { showFeedback('feed-compra', 'Selecione o cliente e o produto.', true); return; }
+            
+            const pSelecionado = CATALOGO_LOCAL.find(p => p.produto === produto);
+
+            const payload = {
+                op: "lancarCompra",
+                senhaCaderno: sessionStorage.getItem('senhaMestre'),
+                responsavel: sessionStorage.getItem('adminNome'),
+                codigoCliente: cliente,
+                produto: produto,
+                quantidade: qtd,
+                precoUnitario: pSelecionado.preco
+            };
+
+            enviarPost(payload, () => {
+                showFeedback('feed-compra', 'Registro enviado com sucesso ao caderno!');
+                document.getElementById('prodQtd').value = 1;
+                document.getElementById('previewPreco').value = "R$ 0,00";
+            }, 'feed-compra');
+        }
+
+        function toggleEditarGeladeira() {
+            const input = document.getElementById('senhaGeladeira');
+            const btn = document.getElementById('btnEditarGeladeira');
+
+            if(input.disabled) {
+                input.disabled = false;
+                input.focus();
+                btn.innerText = "Salvar";
+                btn.style.background = "var(--success)";
+            } else {
+                input.disabled = true;
+                btn.innerText = "Editar";
+                btn.style.background = "var(--warning)";
+                
+                const payload = {
+                    op: "atualizarGeladeira",
+                    senhaCaderno: sessionStorage.getItem('senhaMestre'),
+                    novaSenha: input.value
+                };
+                
+                enviarPost(payload, () => {
+                    showFeedback('feed-geladeira', 'Nova senha enviada! Atualizando quadro informativo...');
+                    // Sincroniza o quadro de avisos com o novo valor digitado
+                    document.getElementById('senhaGeladeiraTexto').innerText = input.value;
+                }, 'feed-geladeira');
+            }
+        }
+
+        function enviarPost(payload, callbackSucesso, feedId) {
+            fetch(API_URL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            })
+            .then(() => {
+                callbackSucesso();
+            })
+            .catch(() => showFeedback(feedId, 'Erro ao enviar dados.', true));
+        }
+
+        function recarregarDadosSilenciosamente() {
+            const延 = sessionStorage.getItem('senhaMestre');
+            fetch(`${API_URL}?op=obterDadosAdmin&senha=${encodeURIComponent(延)}`)
+            .then(res => res.json())
+            .then(dados => {
+                if(!dados.erro) {
+                    CATALOGO_LOCAL = dados.catalogo;
+                    CLIENTES_LOCAL = dados.clientes;
+                    renderizarSeletores();
+                }
+            });
+        }
+
+        function atualizarPrecoPreVisualizacao() {
+            const selectProd = document.getElementById('selectProdutoCompra');
+            const qtdInput = document.getElementById('prodQtd');
+            let qtd = parseInt(qtdInput.value);
+            const preview = document.getElementById('previewPreco');
+
+            if (isNaN(qtd) || qtd < 1) { qtdInput.value = 1; qtd = 1; }
+            if(!selectProd.value) { preview.value = "R$ 0,00"; return; }
+
+            const precoUnitario = parseFloat(selectProd.options[selectProd.selectedIndex].getAttribute('data-preco'));
+            const total = precoUnitario * qtd;
+            preview.value = `R$ ${total.toFixed(2).replace('.', ',')}`;
+        }
+
+        function carregarPrecoProdutoEdicao() {
+            const select = document.getElementById('selectProdutoPreco');
+            const container = document.getElementById('container-nome-produto');
+            const inputPreco = document.getElementById('inputPrecoProduto');
+            
+            if (select.value === 'novo') {
+                container.style.display = 'block';
+                inputPreco.value = '';
+            } else {
+                container.style.display = 'none';
+                const opt = select.options[select.selectedIndex];
+                inputPreco.value = opt.getAttribute('data-preco');
+            }
+        }
     </script>
 </body>
 
